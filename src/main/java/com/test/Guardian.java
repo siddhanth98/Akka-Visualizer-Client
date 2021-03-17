@@ -64,24 +64,24 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
 
         if (random == 0) {
             if (messageToSend == 0) {
-                getContext().getLog().info("Sending increment message to actor1");
+                getContext().getLog().info(String.format("Sending increment message to %s", actor1.path().toString()));
                 actor1.tell(new Actor1.Increment());
                 vis.send("increment", getContext().getSelf().path().toString(), actor1.path().toString());
             }
             else {
-                getContext().getLog().info("Sending display message to actor1");
+                getContext().getLog().info(String.format("Sending display message to %s", actor1.path().toString()));
                 actor1.tell(new Actor1.Display());
                 vis.send("display", getContext().getSelf().path().toString(), actor1.path().toString());
             }
         }
         else if (random == 1){
             if (messageToSend == 0) {
-                getContext().getLog().info("Sending increment message to actor2");
+                getContext().getLog().info(String.format("Sending increment message to %s", actor2.path().toString()));
                 actor2.tell(new Actor1.Increment());
                 vis.send("increment", getContext().getSelf().path().toString(), actor2.path().toString());
             }
             else {
-                getContext().getLog().info("Sending display message to actor2");
+                getContext().getLog().info(String.format("Sending display message to %s", actor2.path().toString()));
                 actor2.tell(new Actor1.Display());
                 vis.send("display", getContext().getSelf().path().toString(), actor2.path().toString());
             }
@@ -92,10 +92,12 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
 
             random = (int)(Math.random()*2);
             if (random == 0) {
+                getContext().getLog().info(String.format("Sending ping message to %s", actor1.path().toString()));
                 actor1.tell(new Actor1.PingActor(actor3));
                 vis.send("ping", getContext().getSelf().path().toString(), actor1.path().toString());
             }
             else {
+                getContext().getLog().info(String.format("Sending ping message to %s", actor2.path().toString()));
                 actor2.tell(new Actor1.PingActor(actor3));
                 vis.send("ping", getContext().getSelf().path().toString(), actor2.path().toString());
             }

@@ -1,7 +1,6 @@
 package com.test;
 
 import akka.actor.typed.ActorSystem;
-import vis.MyVisualizerClient;
 
 import java.util.Timer;
 import java.util.TimerTask;

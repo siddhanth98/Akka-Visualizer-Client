@@ -63,6 +63,7 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
     }
 
     private Behavior<Command> pingActor(ActorRef<Command> replyTo) {
+        getContext().getLog().info(String.format("Sending display message to %s", replyTo.path().toString()));
         replyTo.tell(new Actor1.Display());
         vis.send("display", getContext().getSelf().path().toString(), replyTo.path().toString());
 
