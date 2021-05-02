@@ -11,29 +11,48 @@ import java.io.Serializable;
 import java.net.URI;
 import java.util.Date;
 import java.util.Map;
-import java.util.Queue;
 
 public class MyVisualizerClient {
-    static class ActorEvent implements Serializable {
-        private final String name;
+    static class Event implements Serializable {
+        private final long time;
 
-        @JsonCreator
-        public ActorEvent(@JsonProperty("name") String name) {
-            this.name = name;
+        public Event(long time) {
+            this.time = time;
         }
 
-        public String getName() {
-            return name;
+        public long getTime() {
+            return this.time;
         }
     }
 
-    static class MessageEvent implements Serializable {
+    static class ActorEvent extends Event implements Serializable {
+        private final String name;
+
+        @JsonCreator
+        public ActorEvent(@JsonProperty("name") String name,
+                          @JsonProperty("time") long time) {
+            super(time);
+            this.name = name;
+        }
+
+        public long getTime() {
+            return super.getTime();
+        }
+
+        public String getName() {
+            return this.name;
+        }
+    }
+
+    static class MessageEvent extends Event implements Serializable {
         private final String label, from, to;
 
         @JsonCreator
         public MessageEvent(@JsonProperty("label") String label,
                             @JsonProperty("from") String from,
-                            @JsonProperty("to") String to) {
+                            @JsonProperty("to") String to,
+                            @JsonProperty("time") long time) {
+            super(time);
             this.label = label;
             this.from = from;
             this.to = to;
@@ -50,6 +69,10 @@ public class MyVisualizerClient {
         public String getTo() {
             return to;
         }
+
+        public long getTime() {
+            return super.getTime();
+        }
     }
 
     private final static Socket socket = IO.socket(URI.create("http://localhost:3001"));
@@ -61,8 +84,10 @@ public class MyVisualizerClient {
 
     public void submit(String actorName) {
         try {
+            long time = new Date().getTime();
             ObjectMapper mapper = new ObjectMapper();
-            socket.emit("constructNode", mapper.writeValueAsString(new ActorEvent(actorName)));
+
+            socket.emit("constructNode", mapper.writeValueAsString(new ActorEvent(actorName, time)));
         }
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
@@ -71,9 +96,9 @@ public class MyVisualizerClient {
 
     public void send(String label, String from, String to) {
         try {
+            long time = new Date().getTime();
             ObjectMapper mapper = new ObjectMapper();
-            System.out.printf("%s sent %s to %s at %d%n", from, label, to, new Date().getTime());
-            socket.emit("constructEdge", mapper.writeValueAsString(new MessageEvent(label, from, to)));
+            socket.emit("constructEdge", mapper.writeValueAsString(new MessageEvent(label, from, to, time)));
         }
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
@@ -85,9 +110,10 @@ public class MyVisualizerClient {
     }
 
     public void destroy(String actorName) {
+        long time = new Date().getTime();
         ObjectMapper mapper = new ObjectMapper();
         try {
-            socket.emit("destroyNode", mapper.writeValueAsString(new ActorEvent(actorName)));
+            socket.emit("destroyNode", mapper.writeValueAsString(new ActorEvent(actorName, time)));
         }
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
