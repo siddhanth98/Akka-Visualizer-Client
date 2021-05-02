@@ -1,14 +1,57 @@
 package vis;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.socket.client.IO;
 import io.socket.client.Socket;
 
+import java.io.Serializable;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.List;
+import java.util.Date;
 import java.util.Map;
+import java.util.Queue;
 
 public class MyVisualizerClient {
+    static class ActorEvent implements Serializable {
+        private final String name;
+
+        @JsonCreator
+        public ActorEvent(@JsonProperty("name") String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    static class MessageEvent implements Serializable {
+        private final String label, from, to;
+
+        @JsonCreator
+        public MessageEvent(@JsonProperty("label") String label,
+                            @JsonProperty("from") String from,
+                            @JsonProperty("to") String to) {
+            this.label = label;
+            this.from = from;
+            this.to = to;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public String getFrom() {
+            return from;
+        }
+
+        public String getTo() {
+            return to;
+        }
+    }
+
     private final static Socket socket = IO.socket(URI.create("http://localhost:3001"));
 
     public MyVisualizerClient() {
@@ -16,33 +59,48 @@ public class MyVisualizerClient {
         socket.emit("setSocketId", "actorHandler");
     }
 
-    public static void main(String[] args) {
-        try {
-            socket.connect();
-            Map<String, List<Integer>> m = new HashMap<>();
-            m.put("a", List.of(1,2,3));
-            m.put("b", List.of(4,5,6));
-            socket.emit("hello", m, List.of(10, 11));
-            socket.on("disconnect", (a) -> socket.disconnect());
-        }
-        catch(Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     public void submit(String actorName) {
-        socket.emit("constructNode", actorName);
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            socket.emit("constructNode", mapper.writeValueAsString(new ActorEvent(actorName)));
+        }
+        catch(JsonProcessingException ex) {
+            ex.printStackTrace();
+        }
     }
 
     public void send(String label, String from, String to) {
-        socket.emit("constructEdge", label, from, to);
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            System.out.printf("%s sent %s to %s at %d%n", from, label, to, new Date().getTime());
+            socket.emit("constructEdge", mapper.writeValueAsString(new MessageEvent(label, from, to)));
+        }
+        catch(JsonProcessingException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public void receive(String label, String receiver) {
+        socket.emit("receive", label, receiver);
     }
 
     public void destroy(String actorName) {
-        socket.emit("destroyNode", actorName);
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            socket.emit("destroyNode", mapper.writeValueAsString(new ActorEvent(actorName)));
+        }
+        catch(JsonProcessingException ex) {
+            ex.printStackTrace();
+        }
     }
 
     public void setState(Map<String, Object> state) {
-        socket.emit("setState", state);
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            socket.emit("setState", mapper.writeValueAsString(state));
+        }
+        catch(JsonProcessingException ex) {
+            ex.printStackTrace();
+        }
     }
 }

@@ -19,6 +19,7 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
     public static class Spawn implements Command {}
     public static class InitiateMessageTransfer implements Command {}
     public static class ScheduleMessage implements Command {}
+    public static class Kill implements Command {}
 
     public static Behavior<Command> create() {
         return Behaviors.setup(context -> new Guardian(context));
@@ -27,7 +28,7 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
     private Guardian(ActorContext<Command> context) {
         super(context);
         context.getLog().info(String.format("%s created%n", context.getSelf().path().toString()));
-        vis.submit(context.getSelf().path().toString());
+        vis.submit(context.getSelf().path().toString()); /* submit actor ref to vis */
     }
 
     @Override
@@ -36,11 +37,11 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
                 .onMessage(Spawn.class, m -> this.handleSpawn())
                 .onMessage(InitiateMessageTransfer.class, m -> this.handleMessageTransfer())
                 .onMessage(ScheduleMessage.class, m -> this.handleSchedule())
+                .onMessage(Kill.class, m -> this.kill())
                 .onSignal(Terminated.class, sig -> {
-                    vis.destroy(getContext().getSelf().path().toString());
+                    vis.destroy(getContext().getSelf().path().toString()); /* tell vis to delete this actor node */
                     return Behaviors.stopped();
-                })
-                .build();
+                }).build();
     }
 
     private Behavior<Command> handleSpawn() {
@@ -51,10 +52,10 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
 
     private Behavior<Command> handleMessageTransfer() {
         actor1.tell(new Actor1.Increment());
-        vis.send("increment", getContext().getSelf().path().toString(), actor1.path().toString());
+        vis.send("increment", getContext().getSelf().path().toString(), actor1.path().toString()); /* tell vis about this message */
 
         actor2.tell(new Actor1.Increment());
-        vis.send("increment", getContext().getSelf().path().toString(), actor2.path().toString());
+        vis.send("increment", getContext().getSelf().path().toString(), actor2.path().toString()); /* tell vis about this message */
         return this;
     }
 
@@ -103,5 +104,18 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
             }
         }
         return this;
+    }
+
+    public Behavior<Command> kill() {
+        int random = (int)(Math.random()*2);
+        ActorRef<Actor1.Command> actorToKill = random == 0 ? actor1 : actor2;
+        getContext().getLog().info(String.format("%s killed", actorToKill.path().toString()));
+        vis.destroy(actorToKill.path().toString());
+        getContext().stop(actorToKill);
+        return this;
+    }
+
+    public void notifyMessageTransfer(String label, String to) {
+        vis.send(label, getContext().getSelf().path().toString(), to);
     }
 }

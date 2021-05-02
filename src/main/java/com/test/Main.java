@@ -17,8 +17,10 @@ public class Main {
             public void run() {
                 system.tell(new Guardian.ScheduleMessage());
 
-                if (Math.abs(System.currentTimeMillis()/1000-startTime) >= 20)
+                if (Math.abs(System.currentTimeMillis()/1000-startTime) >= 20) {
+                    system.tell(new Guardian.Kill());
                     timer.cancel();
+                }
             }
         };
         timer.schedule(timerTask, 3000, 1000);
