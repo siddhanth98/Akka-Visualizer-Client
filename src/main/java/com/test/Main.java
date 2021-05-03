@@ -1,13 +1,16 @@
 package com.test;
 
 import akka.actor.typed.ActorSystem;
+import vis.MyVisualizerClient;
 
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class Main {
     public static void main(String[] args) {
-        final ActorSystem<Guardian.Command> system = ActorSystem.create(Guardian.create(), "Guardian");
+        MyVisualizerClient vis = new MyVisualizerClient(); /* just maintain a single vis object */
+
+        final ActorSystem<Guardian.Command> system = ActorSystem.create(Guardian.create(vis), "Guardian");
         system.tell(new Guardian.Spawn());
 
         long startTime = System.currentTimeMillis() / 1000;

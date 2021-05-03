@@ -10,25 +10,27 @@ import akka.actor.typed.javadsl.Receive;
 import vis.MyVisualizerClient;
 
 public class Guardian extends AbstractBehavior<Guardian.Command> {
-    interface Command {}
     private ActorRef<Actor1.Command> actor1;
     private ActorRef<Actor1.Command> actor2;
     private int index = 3;
-    private final MyVisualizerClient vis = new MyVisualizerClient();
+    private final MyVisualizerClient vis;
+
+    interface Command {}
 
     public static class Spawn implements Command {}
     public static class InitiateMessageTransfer implements Command {}
     public static class ScheduleMessage implements Command {}
     public static class Kill implements Command {}
 
-    public static Behavior<Command> create() {
-        return Behaviors.setup(context -> new Guardian(context));
+    public static Behavior<Command> create(MyVisualizerClient vis) {
+        return Behaviors.setup(context -> new Guardian(context, vis));
     }
 
-    private Guardian(ActorContext<Command> context) {
+    private Guardian(ActorContext<Command> context, MyVisualizerClient vis) {
         super(context);
+        this.vis = vis;
         context.getLog().info(String.format("%s created%n", context.getSelf().path().toString()));
-        vis.submit(context.getSelf().path().toString()); /* submit actor ref to vis */
+        this.vis.submit(context.getSelf().path().toString()); /* submit actor ref to vis */
     }
 
     @Override
@@ -45,17 +47,17 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
     }
 
     private Behavior<Command> handleSpawn() {
-        actor1 = getContext().spawn(Actor1.create(10), "Actor-1");
-        actor2 = getContext().spawn(Actor1.create(0), "Actor-2");
+        actor1 = getContext().spawn(Actor1.create(10, "control-node", this.vis), "Actor-1");
+        actor2 = getContext().spawn(Actor1.create(0, "data-node", this.vis), "Actor-2");
         return this;
     }
 
     private Behavior<Command> handleMessageTransfer() {
         actor1.tell(new Actor1.Increment());
-        vis.send("increment", getContext().getSelf().path().toString(), actor1.path().toString()); /* tell vis about this message */
+        notifyMessageTransfer("increment", actor1.path().toString());
 
         actor2.tell(new Actor1.Increment());
-        vis.send("increment", getContext().getSelf().path().toString(), actor2.path().toString()); /* tell vis about this message */
+        notifyMessageTransfer("increment", actor2.path().toString());
         return this;
     }
 
@@ -67,40 +69,42 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
             if (messageToSend == 0) {
                 getContext().getLog().info(String.format("Sending increment message to %s", actor1.path().toString()));
                 actor1.tell(new Actor1.Increment());
-                vis.send("increment", getContext().getSelf().path().toString(), actor1.path().toString());
+                notifyMessageTransfer("increment", actor1.path().toString());
             }
             else {
                 getContext().getLog().info(String.format("Sending display message to %s", actor1.path().toString()));
                 actor1.tell(new Actor1.Display());
-                vis.send("display", getContext().getSelf().path().toString(), actor1.path().toString());
+                notifyMessageTransfer("display", actor1.path().toString());
             }
         }
         else if (random == 1){
             if (messageToSend == 0) {
                 getContext().getLog().info(String.format("Sending increment message to %s", actor2.path().toString()));
                 actor2.tell(new Actor1.Increment());
-                vis.send("increment", getContext().getSelf().path().toString(), actor2.path().toString());
+                notifyMessageTransfer("increment", actor2.path().toString());
             }
             else {
                 getContext().getLog().info(String.format("Sending display message to %s", actor2.path().toString()));
                 actor2.tell(new Actor1.Display());
-                vis.send("display", getContext().getSelf().path().toString(), actor2.path().toString());
+                notifyMessageTransfer("display", actor2.path().toString());
             }
         }
         else {
+            int nType = (int)(Math.random()*2);
+            String nodeType = nType == 0 ? "control-node" : "data-node";
             ActorRef<Actor1.Command> actor3 =
-                    getContext().spawn(Actor1.create((int)(1+Math.random()*100)), String.format("Actor-%d", this.index++));
+                    getContext().spawn(Actor1.create((int)(1+Math.random()*100), nodeType, vis), String.format("Actor-%d", this.index++));
 
             random = (int)(Math.random()*2);
             if (random == 0) {
                 getContext().getLog().info(String.format("Sending ping message to %s", actor1.path().toString()));
                 actor1.tell(new Actor1.PingActor(actor3));
-                vis.send("ping", getContext().getSelf().path().toString(), actor1.path().toString());
+                notifyMessageTransfer("ping", actor1.path().toString());
             }
             else {
                 getContext().getLog().info(String.format("Sending ping message to %s", actor2.path().toString()));
                 actor2.tell(new Actor1.PingActor(actor3));
-                vis.send("ping", getContext().getSelf().path().toString(), actor2.path().toString());
+                notifyMessageTransfer("ping", actor2.path().toString());
             }
         }
         return this;

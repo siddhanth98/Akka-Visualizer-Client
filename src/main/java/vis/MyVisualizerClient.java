@@ -105,6 +105,7 @@ public class MyVisualizerClient {
         }
     }
 
+    /* TODO: Here timestamp needs to be stored so that the server can determine who the sender is */
     public void receive(String label, String receiver) {
         socket.emit("receive", label, receiver);
     }

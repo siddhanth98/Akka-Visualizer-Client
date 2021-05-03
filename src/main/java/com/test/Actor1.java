@@ -9,6 +9,7 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import vis.MyVisualizerClient;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,6 +18,7 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
 
     public static class Increment implements Command {}
     public static class Display implements Command {}
+    public static class State implements Command {}
     public static class Greeting implements Command {
         public final String message;
         public Greeting(String message) {
@@ -31,19 +33,25 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
         }
     }
 
-    private final MyVisualizerClient vis = new MyVisualizerClient();
+    private final MyVisualizerClient vis;
     private int count;
+    private String nodeType;
 
-    public static Behavior<Command> create(final int initialCount) {
-        return Behaviors.setup(context -> new Actor1(context, initialCount));
+
+    public static Behavior<Command> create(final int initialCount, final String nodeType, MyVisualizerClient vis) {
+        return Behaviors.setup(context -> Behaviors.withTimers(timer -> {
+            timer.startTimerWithFixedDelay(new Actor1.State(), Duration.ofMillis(3000));
+            return new Actor1(context, initialCount, nodeType, vis);
+        }));
     }
 
-    private Actor1(ActorContext<Command> context, int count) {
+    private Actor1(ActorContext<Command> context, int count, String nodeType, MyVisualizerClient vis) {
         super(context);
+        this.vis = vis;
+        this.nodeType = nodeType;
         vis.submit(context.getSelf().path().toString()); /* submit actor ref to vis */
         context.getLog().info(String.format("%s created%n", context.getSelf().path().toString()));
         this.count = count;
-        vis.setState(this.getState()); /* sync state with vis */
     }
 
     public Receive<Command> createReceive() {
@@ -51,6 +59,7 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
                 .onMessage(Increment.class, m -> this.onIncrement())
                 .onMessage(Display.class, m -> this.display())
                 .onMessage(PingActor.class, m -> this.pingActor(m.replyTo))
+                .onMessage(State.class, m -> this.syncState())
                 .onMessage(Greeting.class, m -> this.getGreet(m.message))
                 .onSignal(Terminated.class, sig -> {
                     vis.destroy(getContext().getSelf().path().toString()); /* tell vis to delete this actor node */
@@ -60,7 +69,6 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
 
     private Behavior<Command> onIncrement() { /* message received, let vis know */
         this.count++;
-        vis.setState(getState()); /* state changes here, so sync state with vis */
         return this;
     }
 
@@ -82,10 +90,16 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
         return this;
     }
 
+    public Behavior<Command> syncState() {
+        this.vis.setState(this.getState());
+        return this;
+    }
+
     public Map<String, Object> getState() {
         Map<String, Object> myState = new HashMap<>();
         myState.put("name", getContext().getSelf().path().toString());
         myState.put("count", this.count);
+        myState.put("nodeType", this.nodeType);
         return myState;
     }
 }
