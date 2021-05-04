@@ -127,10 +127,6 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
         return this;
     }
 
-    public void notifyMessageTransfer(String label, String to) {
-        vis.send(label, getContext().getSelf().path().toString(), to);
-    }
-
     public void notify(MyVisualizerClient.MessageWrapper wrapper, String receiver, String event, Message msg) {
         wrapper.setReceiver(receiver);
         wrapper.setMessage(msg);

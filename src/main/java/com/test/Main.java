@@ -26,6 +26,6 @@ public class Main {
                 }
             }
         };
-        timer.schedule(timerTask, 3000, 1000);
+        timer.schedule(timerTask, 3000, 500);
     }
 }

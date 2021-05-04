@@ -16,13 +16,25 @@ import java.util.Map;
 public class MyVisualizerClient {
     static class Event implements Serializable {
         private final long time;
+        private final Map<String, Object> state;
 
         public Event(long time) {
+            this(time, new HashMap<>());
+        }
+
+        @JsonCreator
+        public Event(@JsonProperty("time") long time,
+                     @JsonProperty("state") Map<String, Object> state) {
             this.time = time;
+            this.state = state;
         }
 
         public long getTime() {
             return this.time;
+        }
+
+        public Map<String, Object> getState() {
+            return this.state;
         }
     }
 
@@ -49,23 +61,16 @@ public class MyVisualizerClient {
         private final String label, to, event;
         private String from;
 
-        public MessageEvent(@JsonProperty("event") String event,
-                            @JsonProperty("label") String label,
-                            @JsonProperty("receiver") String receiver,
-                            @JsonProperty("time") long time) {
-            super(time);
-            this.event = event;
-            this.label = label;
-            this.to = receiver;
-        }
-
         @JsonCreator
         public MessageEvent(@JsonProperty("event") String event,
                             @JsonProperty("label") String label,
                             @JsonProperty("from") String from,
                             @JsonProperty("to") String to,
                             @JsonProperty("time") long time) {
-            this(event, label, to, time);
+            super(time);
+            this.event = event;
+            this.label = label;
+            this.to = to;
             this.from = from;
         }
 
@@ -163,14 +168,14 @@ public class MyVisualizerClient {
 
     public void send(String label, String from, String to) {
         long time = new Date().getTime();
-        System.out.printf("%s from %s to %s, t = %d%n", label, from, to, time);
+        /*System.out.printf("%s from %s to %s, t = %d%n", label, from, to, time);
         try {
             ObjectMapper mapper = new ObjectMapper();
             socket.emit("send", mapper.writeValueAsString(new MessageEvent("send", label, from, to, time)));
         }
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
-        }
+        }*/
     }
 
     public void receive(String label, String sender, String receiver) {
@@ -179,7 +184,7 @@ public class MyVisualizerClient {
 
         try {
             ObjectMapper mapper = new ObjectMapper();
-            socket.emit("receive", mapper.writeValueAsString(new MessageEvent("receive", label, receiver, time)));
+            socket.emit("receive", mapper.writeValueAsString(new MessageEvent("receive", label, sender, receiver, time)));
         }
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
@@ -198,9 +203,10 @@ public class MyVisualizerClient {
     }
 
     public void setState(Map<String, Object> state) {
+        long time = new Date().getTime();
         try {
             ObjectMapper mapper = new ObjectMapper();
-            socket.emit("setState", mapper.writeValueAsString(state));
+            socket.emit("setState", mapper.writeValueAsString(new Event(time, state)));
         }
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
