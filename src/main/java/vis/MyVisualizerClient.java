@@ -10,6 +10,7 @@ import io.socket.client.Socket;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 public class MyVisualizerClient {
@@ -45,17 +46,31 @@ public class MyVisualizerClient {
     }
 
     static class MessageEvent extends Event implements Serializable {
-        private final String label, from, to;
+        private final String label, to, event;
+        private String from;
+
+        public MessageEvent(@JsonProperty("event") String event,
+                            @JsonProperty("label") String label,
+                            @JsonProperty("receiver") String receiver,
+                            @JsonProperty("time") long time) {
+            super(time);
+            this.event = event;
+            this.label = label;
+            this.to = receiver;
+        }
 
         @JsonCreator
-        public MessageEvent(@JsonProperty("label") String label,
+        public MessageEvent(@JsonProperty("event") String event,
+                            @JsonProperty("label") String label,
                             @JsonProperty("from") String from,
                             @JsonProperty("to") String to,
                             @JsonProperty("time") long time) {
-            super(time);
-            this.label = label;
+            this(event, label, to, time);
             this.from = from;
-            this.to = to;
+        }
+
+        public String getEvent() {
+            return event;
         }
 
         public String getLabel() {
@@ -75,39 +90,100 @@ public class MyVisualizerClient {
         }
     }
 
+    public class MessageWrapper {
+        Message message;
+        String receiver;
+
+        public MessageWrapper() {
+
+        }
+
+        public MessageWrapper(Message msg, String event, String receiver) {
+            this.message = msg;
+            switch(event) {
+                case "send":
+                    send(msg.getClass().getSimpleName(), getActorName(msg.getSenderKey()), receiver);
+                    break;
+                case "receive":
+                    receive(msg.getClass().getSimpleName(), getActorName(msg.getSenderKey()), receiver);
+            }
+        }
+
+        public void setReceiver(String receiver) {
+            this.receiver = receiver;
+        }
+
+        public Message getMessage() {
+            return this.message;
+        }
+
+        public void setMessage(Message msg) {
+            this.message = msg;
+        }
+
+        public void emit(String event) {
+            switch(event) {
+                case "send":
+                    send(this.message.getClass().getSimpleName(), getActorName(this.message.getSenderKey()), this.receiver);
+                    break;
+                case "receive":
+                    receive(this.message.getClass().getSimpleName(), getActorName(this.message.getSenderKey()), this.receiver);
+                    break;
+            }
+        }
+    }
+
     private final static Socket socket = IO.socket(URI.create("http://localhost:3001"));
+    private long key;
+    private final Map<Long, String> keyRef;
 
     public MyVisualizerClient() {
         socket.connect();
         socket.emit("setSocketId", "actorHandler");
+        this.key = 0;
+        this.keyRef = new HashMap<>();
     }
 
-    public void submit(String actorName) {
-        try {
-            long time = new Date().getTime();
-            ObjectMapper mapper = new ObjectMapper();
+    public long submit(String actorName) {
+        /* get unique key for this new actor and store it */
+        long key = getUniqueKey();
+        this.keyRef.put(key, actorName);
+        System.out.printf("%d -> %s%n", key, actorName);
 
-            socket.emit("constructNode", mapper.writeValueAsString(new ActorEvent(actorName, time)));
+        long time = new Date().getTime();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            socket.emit("spawn", mapper.writeValueAsString(new ActorEvent(actorName, time)));
         }
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
         }
+        return key;
     }
 
     public void send(String label, String from, String to) {
+        long time = new Date().getTime();
+        System.out.printf("%s from %s to %s, t = %d%n", label, from, to, time);
         try {
-            long time = new Date().getTime();
             ObjectMapper mapper = new ObjectMapper();
-            socket.emit("constructEdge", mapper.writeValueAsString(new MessageEvent(label, from, to, time)));
+            socket.emit("send", mapper.writeValueAsString(new MessageEvent("send", label, from, to, time)));
         }
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
         }
     }
 
-    /* TODO: Here timestamp needs to be stored so that the server can determine who the sender is */
-    public void receive(String label, String receiver) {
-        socket.emit("receive", label, receiver);
+    public void receive(String label, String sender, String receiver) {
+        long time = new Date().getTime();
+        System.out.printf("%s received by %s from %s, t = %d%n", label, sender, receiver, time);
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            socket.emit("receive", mapper.writeValueAsString(new MessageEvent("receive", label, receiver, time)));
+        }
+        catch(JsonProcessingException ex) {
+            ex.printStackTrace();
+        }
     }
 
     public void destroy(String actorName) {
@@ -129,5 +205,25 @@ public class MyVisualizerClient {
         catch(JsonProcessingException ex) {
             ex.printStackTrace();
         }
+    }
+
+    public long getUniqueKey() {
+        System.out.println("generating new key");
+        long key = this.getKey();
+        this.setKey(key+1);
+        return key;
+    }
+
+    public String getActorName(long key) {
+        if (this.keyRef.containsKey(key)) return this.keyRef.get(key);
+        return "";
+    }
+
+    public long getKey() {
+        return this.key;
+    }
+
+    public void setKey(long key) {
+        this.key = key;
     }
 }

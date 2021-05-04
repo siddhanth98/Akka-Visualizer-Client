@@ -8,6 +8,7 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import vis.MyVisualizerClient;
+import vis.ReflectionTest;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -15,6 +16,10 @@ import java.util.Map;
 
 public class Actor1 extends AbstractBehavior<Actor1.Command> {
     interface Command {}
+
+    /* *******TESTING ***********/
+
+    /**************************/
 
     public static class Increment implements Command {}
     public static class Display implements Command {}
@@ -81,6 +86,7 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
         getContext().getLog().info(String.format("%s sending display message to %s",
                 getContext().getSelf().path().toString(), replyTo.path().toString()));
         replyTo.tell(new Actor1.Display());
+
         vis.send("display", getContext().getSelf().path().toString(), replyTo.path().toString()); /* notify vis about message being sent */
         return this;
     }
