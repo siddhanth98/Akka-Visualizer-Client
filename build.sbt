@@ -5,5 +5,6 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "io.socket" % "socket.io-client" % "2.0.0",
   "commons-net" % "commons-net" % "3.8.0",
-  "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.1"
+  "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.1",
+  "com.typesafe" % "config" % "1.4.0"
 )

@@ -99,21 +99,6 @@ public class MyVisualizerClient {
         Message message;
         String receiver;
 
-        public MessageWrapper() {
-
-        }
-
-        public MessageWrapper(Message msg, String event, String receiver) {
-            this.message = msg;
-            switch(event) {
-                case "send":
-                    send(msg.getClass().getSimpleName(), getActorName(msg.getSenderKey()), receiver);
-                    break;
-                case "receive":
-                    receive(msg.getClass().getSimpleName(), getActorName(msg.getSenderKey()), receiver);
-            }
-        }
-
         public void setReceiver(String receiver) {
             this.receiver = receiver;
         }
@@ -127,14 +112,17 @@ public class MyVisualizerClient {
         }
 
         public void emit(String event) {
-            switch(event) {
-                case "send":
-                    send(this.message.getClass().getSimpleName(), getActorName(this.message.getSenderKey()), this.receiver);
-                    break;
-                case "receive":
-                    receive(this.message.getClass().getSimpleName(), getActorName(this.message.getSenderKey()), this.receiver);
-                    break;
-            }
+            receive(this.message.getClass().getSimpleName(), getActorName(this.message.getSenderKey()), this.receiver);
+        }
+
+        public void notify(String receiver, String event, Message msg) {
+            this.setReceiver(receiver);
+            this.setMessage(msg);
+            this.emit(event);
+        }
+
+        public void notify(String receiver, Message m) {
+            this.notify(receiver, "receive", m);
         }
     }
 
@@ -166,21 +154,9 @@ public class MyVisualizerClient {
         return key;
     }
 
-    public void send(String label, String from, String to) {
-        long time = new Date().getTime();
-        /*System.out.printf("%s from %s to %s, t = %d%n", label, from, to, time);
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            socket.emit("send", mapper.writeValueAsString(new MessageEvent("send", label, from, to, time)));
-        }
-        catch(JsonProcessingException ex) {
-            ex.printStackTrace();
-        }*/
-    }
-
     public void receive(String label, String sender, String receiver) {
         long time = new Date().getTime();
-        System.out.printf("%s received by %s from %s, t = %d%n", label, sender, receiver, time);
+        System.out.printf("%s from %s to %s (t=%d)%n", label, sender, receiver, time);
 
         try {
             ObjectMapper mapper = new ObjectMapper();

@@ -7,7 +7,6 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import vis.Message;
 import vis.MyVisualizerClient;
 
 import java.time.Duration;
@@ -78,7 +77,7 @@ public class Actor2 extends AbstractBehavior<Actor2.Command> {
 
     public static Behavior<Actor2.Command> create(final int initialCount, final String nodeType, MyVisualizerClient vis) {
         return Behaviors.setup(context -> Behaviors.withTimers(timer -> {
-            long key = vis.submit(context.getSelf().path().toString());
+            long key = vis.submit(context.getSelf().path().name());
             timer.startTimerWithFixedDelay(new Actor2.State(key), Duration.ofMillis(3000));
             return new Actor2(key, context, initialCount, nodeType, vis);
         }));
@@ -91,7 +90,7 @@ public class Actor2 extends AbstractBehavior<Actor2.Command> {
         this.nodeType = nodeType;
         this.count = count;
         this.wrapper = this.vis.new MessageWrapper();
-        context.getLog().info(String.format("%s created%n", context.getSelf().path().toString()));
+        context.getLog().info(String.format("%s created%n", context.getSelf().path().name()));
     }
 
     public Receive<Actor2.Command> createReceive() {
@@ -102,59 +101,48 @@ public class Actor2 extends AbstractBehavior<Actor2.Command> {
                 .onMessage(Actor2.State.class, this::syncState)
                 .onMessage(Actor2.Greeting.class, this::getGreet)
                 .onSignal(Terminated.class, sig -> {
-                    vis.destroy(getContext().getSelf().path().toString()); /* tell vis to delete this actor node */
+                    vis.destroy(getContext().getSelf().path().name()); /* tell vis to delete this actor node */
                     return Behaviors.stopped();
                 }).build();
     }
 
     private Behavior<Actor2.Command> onIncrement(Increment msg) { /* message received, let vis know */
-        notify(msg);
+        this.wrapper.notify(getContext().getSelf().path().name(), msg);
         this.count++;
         return this;
     }
 
     private Behavior<Actor2.Command> display(Display msg) {
-        notify(msg);
+        this.wrapper.notify(getContext().getSelf().path().name(), msg);
         getContext().getLog().info(String.format("My current count - %d%n", this.count));
         return this;
     }
 
     private Behavior<Actor2.Command> pingActor(PingActor msg) {
-        notify(msg);
+        this.wrapper.notify(getContext().getSelf().path().name(), msg);
         getContext().getLog().info(String.format("%s sending display message to %s",
-                getContext().getSelf().path().toString(), msg.replyTo.path().toString()));
-        notify(msg.replyTo.path().toString(), "send", new Display(this.key));
-        msg.replyTo.tell((Display)this.wrapper.getMessage());
+                getContext().getSelf().path().name(), msg.replyTo.path().name()));
+        msg.replyTo.tell(new Display(this.key));
         return this;
     }
 
     private Behavior<Actor2.Command> getGreet(Greeting msg) {
-        notify(msg);
+        this.wrapper.notify(getContext().getSelf().path().name(), msg);
         getContext().getLog().info(msg.message);
         return this;
     }
 
     public Behavior<Actor2.Command> syncState(State msg) {
-        notify(msg);
+        this.wrapper.notify(getContext().getSelf().path().name(), msg);
         this.vis.setState(this.getState());
         return this;
     }
 
     public Map<String, Object> getState() {
         Map<String, Object> myState = new HashMap<>();
-        myState.put("name", getContext().getSelf().path().toString());
+        myState.put("name", getContext().getSelf().path().name());
         myState.put("count", this.count);
         myState.put("nodeType", this.nodeType);
         return myState;
-    }
-
-    public void notify(String receiver, String event, Message msg) {
-        this.wrapper.setReceiver(receiver);
-        this.wrapper.setMessage(msg);
-        this.wrapper.emit(event);
-    }
-
-    public void notify(Message msg) {
-        notify(getContext().getSelf().path().toString(), "receive", msg);
     }
 }

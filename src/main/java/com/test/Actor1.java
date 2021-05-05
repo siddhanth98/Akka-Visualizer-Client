@@ -17,10 +17,6 @@ import java.util.Map;
 public class Actor1 extends AbstractBehavior<Actor1.Command> {
     interface Command {}
 
-    /* *******TESTING ***********/
-
-    /**************************/
-
     public static class Increment implements Command {}
     public static class Display implements Command {}
     public static class State implements Command {}
@@ -40,7 +36,7 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
 
     private final MyVisualizerClient vis;
     private int count;
-    private String nodeType;
+    private final String nodeType;
 
 
     public static Behavior<Command> create(final int initialCount, final String nodeType, MyVisualizerClient vis) {
@@ -87,7 +83,6 @@ public class Actor1 extends AbstractBehavior<Actor1.Command> {
                 getContext().getSelf().path().toString(), replyTo.path().toString()));
         replyTo.tell(new Actor1.Display());
 
-        vis.send("display", getContext().getSelf().path().toString(), replyTo.path().toString()); /* notify vis about message being sent */
         return this;
     }
 

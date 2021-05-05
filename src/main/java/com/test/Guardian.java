@@ -10,24 +10,63 @@ import akka.actor.typed.javadsl.Receive;
 import vis.Message;
 import vis.MyVisualizerClient;
 
+import java.time.Duration;
+
 public class Guardian extends AbstractBehavior<Guardian.Command> {
     private final long key;
     private ActorRef<Actor2.Command> actor1;
     private ActorRef<Actor2.Command> actor2;
     private int index = 3;
     private final MyVisualizerClient vis;
+    private final MyVisualizerClient.MessageWrapper wrapper;
 
-    interface Command {}
+    interface Command extends Message {}
 
-    public static class Spawn implements Command {}
-    public static class InitiateMessageTransfer implements Command {}
-    public static class ScheduleMessage implements Command {}
-    public static class Kill implements Command {}
+    public static class Spawn implements Command {
+        public final long key;
+        public Spawn(long key) {
+            this.key = key;
+        }
+        public long getSenderKey() {
+            return this.key;
+        }
+    }
+    public static class InitiateMessageTransfer implements Command {
+        public final long key;
+        public InitiateMessageTransfer(long key) {
+            this.key = key;
+        }
+        public long getSenderKey() {
+            return this.key;
+        }
+    }
+    public static class ScheduleMessage implements Command {
+        public final long key;
+        public ScheduleMessage(long key) {
+            this.key = key;
+        }
+        public long getSenderKey() {
+            return this.key;
+        }
+    }
+    public static class Kill implements Command {
+        public final long key;
+        public Kill(long key) {
+            this.key = key;
+        }
+        public long getSenderKey() {
+            return this.key;
+        }
+    }
 
     public static Behavior<Command> create(MyVisualizerClient vis) {
         return Behaviors.setup(context -> {
-            long key = vis.submit(context.getSelf().path().toString());
-            return new Guardian(key, context, vis);
+            long key = vis.submit(context.getSelf().path().name());
+            context.getSelf().tell(new Spawn(key));
+            return Behaviors.withTimers(timer -> {
+                timer.startTimerWithFixedDelay(new ScheduleMessage(key), Duration.ofMillis(1000));
+                return new Guardian(key, context, vis);
+            });
         });
     }
 
@@ -35,66 +74,59 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
         super(context);
         this.vis = vis;
         this.key = key;
-        context.getLog().info(String.format("%s created%n", context.getSelf().path().toString()));
+        this.wrapper = vis.new MessageWrapper();
+        context.getLog().info(String.format("%s created%n", context.getSelf().path().name()));
     }
 
     @Override
     public Receive<Command> createReceive() {
         return newReceiveBuilder()
-                .onMessage(Spawn.class, m -> this.handleSpawn())
-                .onMessage(InitiateMessageTransfer.class, m -> this.handleMessageTransfer())
-                .onMessage(ScheduleMessage.class, m -> this.handleSchedule())
-                .onMessage(Kill.class, m -> this.kill())
+                .onMessage(Spawn.class, this::handleSpawn)
+                .onMessage(InitiateMessageTransfer.class, this::handleMessageTransfer)
+                .onMessage(ScheduleMessage.class, this::handleSchedule)
+                .onMessage(Kill.class, this::kill)
                 .onSignal(Terminated.class, sig -> {
-                    vis.destroy(getContext().getSelf().path().toString()); /* tell vis to delete this actor node */
+                    vis.destroy(getContext().getSelf().path().name()); /* tell vis to delete this actor node */
                     return Behaviors.stopped();
                 }).build();
     }
 
-    private Behavior<Command> handleSpawn() {
+    private Behavior<Command> handleSpawn(Spawn m) {
         actor1 = getContext().spawn(Actor2.create(10, "control-node", this.vis), "Actor-1");
         actor2 = getContext().spawn(Actor2.create(0, "data-node", this.vis), "Actor-2");
         return this;
     }
 
-    private Behavior<Command> handleMessageTransfer() {
-        Actor2.Increment msg = (Actor2.Increment)
-                this.vis.new MessageWrapper(new Actor2.Increment(this.key), "send", actor1.path().toString()).getMessage();
-        actor1.tell(msg);
-
-        msg = (Actor2.Increment)
-                this.vis.new MessageWrapper(new Actor2.Increment(this.key), "send", actor2.path().toString()).getMessage();
-        actor2.tell(msg);
+    private Behavior<Command> handleMessageTransfer(InitiateMessageTransfer m) {
+        wrapper.notify(getContext().getSelf().path().name(), m);
+        actor1.tell(new Actor2.Increment(this.key));
+        actor2.tell(new Actor2.Increment(this.key));
         return this;
     }
 
-    private Behavior<Command> handleSchedule() {
+    private Behavior<Command> handleSchedule(ScheduleMessage m) {
+        wrapper.notify(getContext().getSelf().path().name(), m);
         int random = (int)(Math.random()*3);
         int messageToSend = (int)(Math.random()*2);
-        MyVisualizerClient.MessageWrapper wrapper = this.vis.new MessageWrapper();
 
         if (random == 0) {
             if (messageToSend == 0) {
-                getContext().getLog().info(String.format("Sending increment message to %s", actor1.path().toString()));
-                notify(wrapper, actor1.path().toString(), "send", new Actor2.Increment(this.key));
-                actor1.tell((Actor2.Increment)wrapper.getMessage());
+                getContext().getLog().info(String.format("Sending increment message to %s", actor1.path().name()));
+                actor1.tell(new Actor2.Increment(this.key));
             }
             else {
-                getContext().getLog().info(String.format("Sending display message to %s", actor1.path().toString()));
-                notify(wrapper, actor1.path().toString(), "send", new Actor2.Display(this.key));
-                actor1.tell((Actor2.Display)wrapper.getMessage());
+                getContext().getLog().info(String.format("Sending display message to %s", actor1.path().name()));
+                actor1.tell(new Actor2.Display(this.key));
             }
         }
         else if (random == 1){
             if (messageToSend == 0) {
-                getContext().getLog().info(String.format("Sending increment message to %s", actor2.path().toString()));
-                notify(wrapper, actor2.path().toString(), "send", new Actor2.Increment(this.key));
-                actor2.tell((Actor2.Increment)wrapper.getMessage());
+                getContext().getLog().info(String.format("Sending increment message to %s", actor2.path().name()));
+                actor2.tell(new Actor2.Increment(this.key));
             }
             else {
-                getContext().getLog().info(String.format("Sending display message to %s", actor2.path().toString()));
-                notify(wrapper, actor2.path().toString(), "send", new Actor2.Display(this.key));
-                actor2.tell((Actor2.Display)wrapper.getMessage());
+                getContext().getLog().info(String.format("Sending display message to %s", actor2.path().name()));
+                actor2.tell(new Actor2.Display(this.key));
             }
         }
         else {
@@ -105,31 +137,24 @@ public class Guardian extends AbstractBehavior<Guardian.Command> {
 
             random = (int)(Math.random()*2);
             if (random == 0) {
-                getContext().getLog().info(String.format("Sending ping message to %s", actor1.path().toString()));
-                notify(wrapper, actor1.path().toString(), "send", new Actor2.PingActor(this.key, actor3));
-                actor1.tell((Actor2.PingActor)wrapper.getMessage());
+                getContext().getLog().info(String.format("Sending ping message to %s", actor1.path().name()));
+                actor1.tell(new Actor2.PingActor(this.key, actor3));
             }
             else {
-                getContext().getLog().info(String.format("Sending ping message to %s", actor2.path().toString()));
-                notify(wrapper, actor2.path().toString(), "send", new Actor2.PingActor(this.key, actor3));
-                actor2.tell((Actor2.PingActor)wrapper.getMessage());
+                getContext().getLog().info(String.format("Sending ping message to %s", actor2.path().name()));
+                actor2.tell(new Actor2.PingActor(this.key, actor3));
             }
         }
         return this;
     }
 
-    public Behavior<Command> kill() {
+    public Behavior<Command> kill(Kill m) {
+        wrapper.notify(getContext().getSelf().path().name(), m);
         int random = (int)(Math.random()*2);
         ActorRef<Actor2.Command> actorToKill = random == 0 ? actor1 : actor2;
-        getContext().getLog().info(String.format("%s killed", actorToKill.path().toString()));
-        vis.destroy(actorToKill.path().toString());
+        getContext().getLog().info(String.format("%s killed", actorToKill.path().name()));
+        vis.destroy(actorToKill.path().name());
         getContext().stop(actorToKill);
         return this;
-    }
-
-    public void notify(MyVisualizerClient.MessageWrapper wrapper, String receiver, String event, Message msg) {
-        wrapper.setReceiver(receiver);
-        wrapper.setMessage(msg);
-        wrapper.emit(event);
     }
 }
