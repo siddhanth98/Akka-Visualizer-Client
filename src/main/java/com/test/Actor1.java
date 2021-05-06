@@ -8,7 +8,6 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import vis.MyVisualizerClient;
-import vis.ReflectionTest;
 
 import java.time.Duration;
 import java.util.HashMap;

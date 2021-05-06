@@ -17,6 +17,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * This is a modified implementation of the chat room program
+ * taken from this website - https://doc.akka.io/docs/akka/current/typed/actors.html#a-more-complex-example
+ * It is modified to integrate the visualizer with its execution
+ */
 public class ChatRoom {
     interface RoomCommand extends Message {}
 
@@ -260,7 +265,8 @@ public class ChatRoom {
 
         static Behavior<SessionCommand> create(MyVisualizerClient vis, ActorRef<RoomCommand> room, String screenName,
                                                ActorRef<SessionEvent> client) {
-            return Behaviors.setup(context -> new Session(context, vis, client).behavior(room, screenName, client));
+            return Behaviors.setup(context ->
+                    new Session(context, vis, client).behavior(room, screenName, client));
         }
 
         public Session(ActorContext<SessionCommand> context, MyVisualizerClient vis,

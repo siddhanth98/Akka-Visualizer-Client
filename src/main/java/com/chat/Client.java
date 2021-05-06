@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import vis.MyVisualizerClient;
 
+import javax.naming.NameAlreadyBoundException;
 import java.io.File;
 import java.time.Duration;
 import java.util.HashMap;
